@@ -1,0 +1,44 @@
+services:
+  fta-profile:
+    build:
+      context: .
+      dockerfile: Dockerfile-distroless
+    volumes:
+      - ~/.config/gcloud/fta-platform-fec1129312b2.json:/app/fta-platform-fec1129312b2.json:ro
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/fta-platform-fec1129312b2.json
+      - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
+      - OTEL_EXPORTER_OTLP_INSECURE=true
+      - APP_HOST=0.0.0.0
+      - APP_PORT=8000
+      - APP_LOG_LEVEL=debug
+      # - APP_WORKERS=2
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://fta-profile:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      - otel-collector
+    ports:
+      - "8000:8000"
+    networks:
+      - otel-network
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.66.0
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+      - ~/.config/gcloud/fta-platform-fec1129312b2.json:/etc/fta-platform-fec1129312b2.json:ro
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/etc/fta-platform-fec1129312b2.json
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    networks:
+      - otel-network
+
+networks:
+  otel-network:
+    driver: bridge
